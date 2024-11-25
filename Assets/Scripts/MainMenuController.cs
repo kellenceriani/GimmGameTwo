@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 public class MainMenuController : MonoBehaviour
@@ -13,13 +14,41 @@ public class MainMenuController : MonoBehaviour
     public TMP_Dropdown resolutionDropdown;
     public Toggle fullscreenToggle;
 
+    public EventSystem eventSystem;
+    public GameObject playButton, optionsButton, creditsButton, gameplayButton, characterOne, exitButton;
+
+    private Dictionary<string, GameObject> firstSelectedMap;
+
     private float defaultVolume = 1.0f;
 
     void Start()
     {
+        InitializeFirstSelectedMap();
         ShowMainMenu();
         InitializeAudioSettings();
         InitializeVideoSettings();
+    }
+
+    private void InitializeFirstSelectedMap()
+    {
+        // Map methods to their respective first selected GameObject
+        firstSelectedMap = new Dictionary<string, GameObject>
+        {
+            { "ShowCharacterSelection", characterOne },
+            { "ShowSettings", gameplayButton },
+            { "ShowCredits", exitButton },
+            { "ExitToMainFromSettings", playButton },
+            { "ExitToMainFromCharacterSelection", playButton },
+            { "ExitToMainFromCredits", playButton }
+        };
+    }
+
+    private void SetFirstSelected(string methodName)
+    {
+        if (firstSelectedMap.ContainsKey(methodName))
+        {
+            eventSystem.SetSelectedGameObject(firstSelectedMap[methodName]);
+        }
     }
 
     public void ShowMainMenu()
@@ -28,42 +57,53 @@ public class MainMenuController : MonoBehaviour
         settings.SetActive(false);
         characterSelection.SetActive(false);
         credits.SetActive(false);
+        SetFirstSelected("ExitToMainFromSettings"); // Default to PlayButton
     }
+
     public void ShowCharacterSelection()
     {
         mainMenu.SetActive(false);
         characterSelection.SetActive(true);
+        SetFirstSelected("ShowCharacterSelection");
     }
 
     public void ShowSettings()
     {
         mainMenu.SetActive(false);
         settings.SetActive(true);
+        HideAllPanels();
+        gameplayPanel.SetActive(true);
+        SetFirstSelected("ShowSettings");
     }
 
     public void ShowCredits()
     {
         mainMenu.SetActive(false);
         credits.SetActive(true);
+        SetFirstSelected("ShowCredits");
     }
 
     public void ExitToMainFromSettings()
     {
         settings.SetActive(false);
         ShowMainMenu();
+        SetFirstSelected("ExitToMainFromSettings");
     }
 
     public void ExitToMainFromCharacterSelection()
     {
         characterSelection.SetActive(false);
         ShowMainMenu();
+        SetFirstSelected("ExitToMainFromCharacterSelection");
     }
 
     public void ExitToMainFromCredits()
     {
         credits.SetActive(false);
         ShowMainMenu();
+        SetFirstSelected("ExitToMainFromCredits");
     }
+
     public void ShowGameplaySettings()
     {
         HideAllPanels();
@@ -109,7 +149,6 @@ public class MainMenuController : MonoBehaviour
 
     private void InitializeVideoSettings()
     {
-        // Populate the dropdown with resolution options
         resolutionDropdown.options.Add(new TMP_Dropdown.OptionData("1920x1080"));
         resolutionDropdown.options.Add(new TMP_Dropdown.OptionData("1280x720"));
         resolutionDropdown.onValueChanged.AddListener(SetResolution);
