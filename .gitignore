@@ -1,0 +1,32 @@
+# Ignore specific folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+MemoryCaptures/
+
+# Ignore auto-generated files
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+
+# Ignore Cache and Debugging files
+*.log
+*.bak
+*.swp
+*.lock
+
+# Ignore Unity Asset Store tools
+/Assets/Plugins/Editor/JetBrains*

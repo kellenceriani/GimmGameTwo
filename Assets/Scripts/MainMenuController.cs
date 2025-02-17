@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
@@ -15,11 +16,18 @@ public class MainMenuController : MonoBehaviour
     public Toggle fullscreenToggle;
 
     public EventSystem eventSystem;
-    public GameObject playButton, optionsButton, creditsButton, gameplayButton, characterOne, exitButton;
+    public GameObject playButton, optionsButton, creditsButton, gameplayButton, characterOne, characterTwo, characterThree, characterFour, playGameButton, exitButton;
 
     private Dictionary<string, GameObject> firstSelectedMap;
 
     private float defaultVolume = 1.0f;
+    private string selectedCharacter = ""; // Tracks the selected character
+
+    private List<GameObject> characterButtons; // List of all character buttons
+    private int playerCount = 1; // Start with player 1
+    public GameObject[] playerOverlays; // Array for player overlays
+    private List<string> joinedDevices = new List<string>(); // Track unique controllers
+    private Dictionary<int, string> playerControllerAssignments = new Dictionary<int, string>(); // Track which controller is assigned to which player
 
     void Start()
     {
@@ -27,11 +35,25 @@ public class MainMenuController : MonoBehaviour
         ShowMainMenu();
         InitializeAudioSettings();
         InitializeVideoSettings();
+
+        // Disable the PlayGame button initially
+        playGameButton.GetComponent<Button>().interactable = false;
+
+        // Initialize the list of character buttons
+        characterButtons = new List<GameObject> { characterOne, characterTwo, characterThree, characterFour };
+    }
+
+    void Update()
+    {
+        // Check if "A" button (Xbox controller button) is pressed and there is room for another player
+        if (IsXboxControllerButtonPressed())
+        {
+            OnPlayerJoin();
+        }
     }
 
     private void InitializeFirstSelectedMap()
     {
-        // Map methods to their respective first selected GameObject
         firstSelectedMap = new Dictionary<string, GameObject>
         {
             { "ShowCharacterSelection", characterOne },
@@ -57,7 +79,7 @@ public class MainMenuController : MonoBehaviour
         settings.SetActive(false);
         characterSelection.SetActive(false);
         credits.SetActive(false);
-        SetFirstSelected("ExitToMainFromSettings"); // Default to PlayButton
+        SetFirstSelected("ExitToMainFromSettings");
     }
 
     public void ShowCharacterSelection()
@@ -65,14 +87,16 @@ public class MainMenuController : MonoBehaviour
         mainMenu.SetActive(false);
         characterSelection.SetActive(true);
         SetFirstSelected("ShowCharacterSelection");
+
     }
+
 
     public void ShowSettings()
     {
         mainMenu.SetActive(false);
         settings.SetActive(true);
         HideAllPanels();
-        gameplayPanel.SetActive(true);
+        gameplayPanel.SetActive(true); // Default to showing the gameplay panel
         SetFirstSelected("ShowSettings");
     }
 
@@ -97,6 +121,16 @@ public class MainMenuController : MonoBehaviour
         SetFirstSelected("ExitToMainFromCharacterSelection");
     }
 
+    public void PlayGameFromCharacterSelection()
+    {
+        if (selectedCharacter != "")
+        {
+            // Assuming all players selected characters
+            Debug.Log("Starting game with characters: " + selectedCharacter);
+            SceneManager.LoadScene("Level1Test");
+        }
+    }
+
     public void ExitToMainFromCredits()
     {
         credits.SetActive(false);
@@ -104,22 +138,211 @@ public class MainMenuController : MonoBehaviour
         SetFirstSelected("ExitToMainFromCredits");
     }
 
-    public void ShowGameplaySettings()
+    public void OnPlayerJoin()
     {
-        HideAllPanels();
-        gameplayPanel.SetActive(true);
+        // Ensure that only Player 1 can join before character selection
+        if (!characterSelection.activeSelf && playerCount >= 1)
+        {
+            Debug.Log("Only one player can join before character selection.");
+            return;
+        }
+
+        string[] joystickNames = Input.GetJoystickNames();
+        string currentDevice = "";
+
+        // Only register Xbox controllers
+        for (int i = 0; i < Input.GetJoystickNames().Length; i++)
+        {
+            string joystick = Input.GetJoystickNames()[i];
+
+            if (IsXboxController(joystick) && !playerControllerAssignments.ContainsValue(joystick))
+            {
+                currentDevice = joystick; // Set the current device that is trying to join
+                break;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(currentDevice))
+        {
+            // Limit to 4 players
+            if (playerCount < 4)
+            {
+                // Ensure Player 1 is the only one joining before character selection
+                if (playerCount == 1 || (playerCount > 1 && characterSelection.activeSelf))
+                {
+                    playerCount++;
+                    playerControllerAssignments[playerCount] = currentDevice; // Assign controller to the player
+
+                    // Enable the corresponding player overlay
+                    playerOverlays[playerCount - 1].SetActive(true);
+                    Debug.Log($"Player {playerCount} joined using {currentDevice}");
+
+                    // Update Character Selection Screen
+                    SetFirstSelected("ShowCharacterSelection");
+                }
+            }
+            else
+            {
+                Debug.Log("Maximum number of players reached.");
+            }
+        }
     }
 
-    public void ShowAudioSettings()
+
+    private bool IsXboxControllerButtonPressed()
     {
-        HideAllPanels();
-        audioPanel.SetActive(true);
+        // Check Xbox controller button (usually "A" button for joining)
+        return Input.GetButtonDown("Submit") || Input.GetKeyDown(KeyCode.JoystickButton0);
     }
 
-    public void ShowVideoSettings()
+    private bool IsXboxController(string joystickName)
     {
-        HideAllPanels();
-        videoPanel.SetActive(true);
+        // Check if the joystick is an Xbox controller
+        return joystickName.Contains("Xbox");
+    }
+
+    public void SelectCharacter(string characterName)
+    {
+        // Update the selected character
+        selectedCharacter = characterName;
+        playGameButton.GetComponent<Button>().interactable = true;
+
+        Debug.Log($"{GetPlayerLabel(playerCount)} selected: " + selectedCharacter);
+
+        // Move the corresponding player's icon based on the character selection
+        MovePlayerIcon(characterName, playerCount);
+
+        // Disable other buttons for unselected characters
+        foreach (GameObject characterButton in characterButtons)
+        {
+            Button button = characterButton.GetComponent<Button>();
+            ColorBlock colors = button.colors;
+
+            if (characterButton.name == characterName)
+            {
+                colors.normalColor = colors.selectedColor;
+            }
+            else
+            {
+                colors.normalColor = colors.disabledColor;
+            }
+
+            button.colors = colors;
+        }
+    }
+
+    private void MovePlayerIcon(string characterName, int playerNum)
+    {
+        Vector2 newScreenPos = Vector2.zero;
+
+        // Set position based on player number and character selected
+        switch (playerNum)
+        {
+            case 1: //move P1 to one of the 4 characters to select them for the level
+                switch (characterName)
+                {
+                    case "CharacterOne":
+                        newScreenPos = new Vector2(-480, 0);
+                        break;
+                    case "CharacterTwo":
+                        newScreenPos = new Vector2(0, 0);
+                        break;
+                    case "CharacterThree":
+                        newScreenPos = new Vector2(480, 0);
+                        break;
+                    case "CharacterFour":
+                        newScreenPos = new Vector2(960, 0);
+                        break;
+                    default:
+                        Debug.LogWarning("Character name not recognized.");
+                        return;
+                }
+                break;
+
+            case 2: //move P2 to one of the 4 characters to select them for the level
+                switch (characterName)
+                {
+                    case "CharacterOne":
+                        newScreenPos = new Vector2(-480, -330);
+                        break;
+                    case "CharacterTwo":
+                        newScreenPos = new Vector2(0, -330);
+                        break;
+                    case "CharacterThree":
+                        newScreenPos = new Vector2(480, -330);
+                        break;
+                    case "CharacterFour":
+                        newScreenPos = new Vector2(960, -330);
+                        break;
+                    default:
+                        Debug.LogWarning("Character name not recognized.");
+                        return;
+                }
+                break;
+
+            case 3: //move P3 to one of the 4 characters to select them for the level
+                switch (characterName)
+                {
+                    case "CharacterOne":
+                        newScreenPos = new Vector2(-830, -330);
+                        break;
+                    case "CharacterTwo":
+                        newScreenPos = new Vector2(-350, -330);
+                        break;
+                    case "CharacterThree":
+                        newScreenPos = new Vector2(130, -330);
+                        break;
+                    case "CharacterFour":
+                        newScreenPos = new Vector2(610, -330);
+                        break;
+                    default:
+                        Debug.LogWarning("Character name not recognized.");
+                        return;
+                }
+                break;
+
+            case 4: //move P4 to one of the 4 characters to select them for the level
+                switch (characterName)
+                {
+                    case "CharacterOne":
+                        newScreenPos = new Vector2(-830, 0);
+                        break;
+                    case "CharacterTwo":
+                        newScreenPos = new Vector2(-350, 0);
+                        break;
+                    case "CharacterThree":
+                        newScreenPos = new Vector2(130, 0);
+                        break;
+                    case "CharacterFour":
+                        newScreenPos = new Vector2(610, 0);
+                        break;
+                    default:
+                        Debug.LogWarning("Character name not recognized.");
+                        return;
+                }
+                break;
+
+            default:
+                Debug.LogWarning("Player number not valid.");
+                return;
+        }
+
+        // Access the player's overlay and move the icon
+        GameObject overlay = playerOverlays[playerNum - 1]; // Get the overlay for the correct player
+        RectTransform rt = overlay.GetComponent<RectTransform>();
+        rt.anchoredPosition = newScreenPos;
+    }
+
+    private string GetPlayerLabel(int playerNum)
+    {
+        return playerNum switch
+        {
+            1 => "P1",
+            2 => "P2",
+            3 => "P3",
+            4 => "P4",
+            _ => "Unknown Player"
+        };
     }
 
     private void HideAllPanels()
@@ -129,41 +352,37 @@ public class MainMenuController : MonoBehaviour
         videoPanel.SetActive(false);
     }
 
+    public void ShowGameplaySettings()
+    {
+        HideAllPanels();
+        gameplayPanel.SetActive(true); // Display the gameplay panel
+        Debug.Log("Gameplay settings shown");
+    }
+
+    public void ShowAudioSettings()
+    {
+        HideAllPanels();
+        audioPanel.SetActive(true); // Display the audio panel
+        Debug.Log("Audio settings shown");
+    }
+
+    public void ShowVideoSettings()
+    {
+        HideAllPanels();
+        videoPanel.SetActive(true); // Display the video panel
+        Debug.Log("Video settings shown");
+    }
+
     private void InitializeAudioSettings()
     {
         volumeSlider.value = defaultVolume;
-        volumeSlider.onValueChanged.AddListener(SetVolume);
-        muteToggle.onValueChanged.AddListener(MuteAudio);
-    }
-
-    public void SetVolume(float volume)
-    {
-        AudioListener.volume = volume;
-        muteToggle.isOn = volume == 0;
-    }
-
-    public void MuteAudio(bool isMuted)
-    {
-        AudioListener.volume = isMuted ? 0 : volumeSlider.value;
+        muteToggle.isOn = false;
     }
 
     private void InitializeVideoSettings()
     {
-        resolutionDropdown.options.Add(new TMP_Dropdown.OptionData("1920x1080"));
-        resolutionDropdown.options.Add(new TMP_Dropdown.OptionData("1280x720"));
-        resolutionDropdown.onValueChanged.AddListener(SetResolution);
-
-        fullscreenToggle.onValueChanged.AddListener(SetFullscreen);
-    }
-
-    public void SetResolution(int index)
-    {
-        if (index == 0) Screen.SetResolution(1920, 1080, fullscreenToggle.isOn);
-        else if (index == 1) Screen.SetResolution(1280, 720, fullscreenToggle.isOn);
-    }
-
-    public void SetFullscreen(bool isFullscreen)
-    {
-        Screen.fullScreen = isFullscreen;
+        resolutionDropdown.ClearOptions();
+        resolutionDropdown.AddOptions(new List<string> { "1920x1080", "1280x720", "1024x768" });
+        fullscreenToggle.isOn = true;
     }
 }
