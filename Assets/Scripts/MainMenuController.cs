@@ -206,13 +206,10 @@ public class MainMenuController : MonoBehaviour
         // Update the selected character
         selectedCharacter = characterName;
         playGameButton.GetComponent<Button>().interactable = true;
-
         Debug.Log($"{GetPlayerLabel(playerCount)} selected: " + selectedCharacter);
 
         // Move the corresponding player's icon based on the character selection
         MovePlayerIcon(characterName, playerCount);
-
-        // Disable other buttons for unselected characters
         foreach (GameObject characterButton in characterButtons)
         {
             Button button = characterButton.GetComponent<Button>();
@@ -229,7 +226,7 @@ public class MainMenuController : MonoBehaviour
 
             button.colors = colors;
         }
-    }
+    }    
 
     private void MovePlayerIcon(string characterName, int playerNum)
     {
